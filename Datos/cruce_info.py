@@ -40,7 +40,7 @@ class GuardarDatos(Pasos):
         self.reporte_pagos[['Fecha', 'Hora']] = self.reporte_pagos['Fecha'].str.split(' ', expand=True)
         print("Reporte Pagos después de separar Fecha y Hora:",self.reporte_pagos)
         print(self.reporte_pagos[['Fecha', 'Hora']].head()) """
-
+         
     """ def procesar_datos(self):
         #Procesa los datos cargados, separa fecha y hora, y selecciona las columnas de interés.
         # Separar la columna FechaHora en Fecha y Hora
@@ -76,7 +76,7 @@ class GuardarDatos(Pasos):
         print("Lista de títulos:", titulos_lista)
         return titulos_lista
 
-    def __cargar_archivos_usuarios(self):
+    def __cargar_archivos_usuarios1(self):
         path_reporte_usuarios = os.path.join(self.path_Reportes, 'reporteUsuarios.xlsx' )
         path_reporte_usuarios_m = os.path.join(self.path_Reportes, 'reporteUsuarios_modificado.xlsx' )
         #Se carga el archivo de usuarios
@@ -90,6 +90,12 @@ class GuardarDatos(Pasos):
             hoja.delete_cols(col)
         #wb_reporte_usuarios.save(path_reporte_usuarios_m)
         return hoja
+    
+    def __cargar_archivos_usuarios(self):
+        columnas_Usuarios=['Identificacion','Cargo','Estado','Oficina']
+        reporte_usuarios = pd.read_excel('reportes/reporteUsuarios.xlsx',usecols=columnas_Usuarios)
+        print(reporte_usuarios)
+        return reporte_usuarios
 
     def __cargar_archivos_pagos(self):
         path_reporte_pagos = os.path.join(self.path_Reportes,'reportePagos.xlsx' )
@@ -134,9 +140,9 @@ class GuardarDatos(Pasos):
 
     def cruzar_archivos(self):
         hora_inicio = datetime.now()
-        print()
+        print(hora_inicio)
         hoja_reporte_pagos = self.__cargar_archivos_pagos()
-        hoja_reporte_usuarios = self.__cargar_archivos_usuarios()
+        reporte_usuarios = self.__cargar_archivos_usuarios()
         titulos_lista = self.__lista_archivo_final()
 
         # Crear un nuevo Workbook para el resultado
@@ -146,66 +152,113 @@ class GuardarDatos(Pasos):
         #hoja_pagos = wb_reporte_pagos.active
 
         # Transferir los datos de wb_reporte_pagos al nuevo workbook
+        fila = 2
         for row_num, fila in enumerate(hoja_reporte_pagos.iter_rows(min_row=2, values_only=True), 2):
             # Llenar las columnas según los títulos de titulos_lista
             identificacion = fila[19]
             print(f"identificacion a llenar: {identificacion}")
-            cargo_autorizado = self.__buscar_usuarios_autorizado(hoja_reporte_usuarios, identificacion)
+            
+            cargo_autorizado = self.__buscar_usuarios_autorizado(reporte_usuarios, identificacion)
             i = 0
-            
+
+            col_  = 0
+            #for cell in hoja_reporte_pagos[1]:
+
             for col_num, titulo in enumerate(titulos_lista):
+        
+            # Suponiendo que los títulos están en la fila 1
+            #for cell in hoja_reporte_pagos[1]:
+                """ if titulo == cell.value or titulo == "Hora":
+                    print(f"error: Titulo: {titulo} cell: {cell}")
+                    hoja_resultado.cell(row=row_num, column=col_num+1, value=fila[col_num])
+                    print(f"Celda a llenar: {titulo} valor: {fila[col_num]}")
+                    col_ +=1
+                    break """
             
-                for cell in hoja_reporte_pagos[1]:  # Suponiendo que los títulos están en la fila 1
-                    if titulo != cell.value:
-                        continue
+            #if titulo == hoja_reporte_pagos.columns[titulo]  # Asegurarse de que el título esté presente en wb_reporte_pagos
                 
-                #if titulo == hoja_reporte_pagos.columns[titulo]  # Asegurarse de que el título esté presente en wb_reporte_pagos
+                if titulo == "Cargo":
+                    identificacion = fila[4]
+                    cargo = self.__buscar_usuarios_cajero(reporte_usuarios, identificacion)
+                    if cargo:
+                        print(f"Celda a llenar: {titulo} valor: '{cargo}'")
+                        hoja_resultado.cell(row=row_num, column=col_num + 1, value=cargo)
+                    """ else:
+                        hoja_resultado.cell(row=row_num, column=col_, value='') """
+
                     
-                    if titulo == "Cargo":
-                        identificacion = fila[4]
-                        cargo = self.__buscar_usuarios_cajero(hoja_reporte_usuarios, identificacion)
-                        if cargo:
-                            print(f"Celda a llenar: {titulo} valor: '{cargo}'")
-                            hoja_resultado.cell(row=row_num, column=col_num, value=cargo)
-                        else:
-                            continue
 
-                    elif titulo == "Cargo autorizado" or titulo == "Oficina" or titulo == "Estado":
-                        
-                        if cargo_autorizado is not None:
-                            hoja_resultado.cell(row=row_num, column=col_num, value=cargo_autorizado[i])
-                            print(f"Celda a llenar: {titulo} valor: '{cargo_autorizado[i]}'")
-                        else:
-                            hoja_resultado.cell(row=row_num, column=col_num, value='')
-                            print(f"Celda a llenar: {titulo} valor: 'vacio'")
-                        i += 1
-                        continue
+                elif titulo == "Cargo autorizado" or titulo == "Oficina1" or titulo == "Estado":
+                    
+                    if cargo_autorizado is not None:
+                        hoja_resultado.cell(row=row_num, column=col_num + 1, value=cargo_autorizado[i])
+                        print(f"Celda a llenar: {titulo} valor: '{cargo_autorizado[i]}'")
+                    """ else:
+                        hoja_resultado.cell(row=row_num, column=col_, value='')
+                        print(f"Celda a llenar: {titulo} valor: 'vacio'") """
+                    i += 1
 
-                    col_index = hoja_reporte_pagos.columns.index(col_num) + 1
-                    # Copiar los datos de la columna correspondiente de wb_reporte_pagos
-                    hoja_resultado.cell(row=row_num, column=col_num, value=fila[col_index - 1])
-                    print(f"Celda a llenar: {titulo} valor: {fila[col_index - 1]}")
+                    
+                else:
+                    columna_encontrada = None
+                    for col in hoja_reporte_pagos.iter_cols(min_row=1, max_row=1):  # Iterar solo sobre la primera fila
+                        if col[0].value == titulo:
+                            columna_encontrada = col[0].column  # Obtener el índice de la columna
+                            
+                            hoja_resultado.cell(row=row_num, column=col_num+1, value=fila[col_])
+                            print(f"Celda a llenar: {titulo} valor: {fila[col_]}")
+                            col_ += 1
+                            break
+                    
+                #col_index = hoja_reporte_pagos.columns.index(col_num) + 1
+                # Copiar los datos de la columna correspondiente de wb_reporte_pagos
+                """ if col_ == 29:
+                    # Guardar el nuevo workbook con los datos combinados
+                    wb_resultado.save(self.path_ResultadoArchivo)
+                    hora_final = datetime.now()
+                    print(f"hora inicio {hora_inicio}. hora final {hora_final}")
+                    break
+            if col_ == 29:
+                break """
+                """ hoja_resultado.cell(row=row_num, column=col_, value=fila[col_ - 1])
+                print(f"Celda a llenar: {titulo} valor: {fila[col_num]}") """
 
         # Guardar el nuevo workbook con los datos combinados
         wb_resultado.save(self.path_ResultadoArchivo)
         hora_final = datetime.now()
         print(f"hora inicio {hora_inicio}. hora final {hora_final}")
 
-    def __buscar_usuarios_cajero(self, hoja_reporte_usuarios, num_identificacion):
+    def __buscar_usuarios_cajero(self, reporte_usuarios, num_id):
+        print(type(reporte_usuarios))
+        print(type(reporte_usuarios['Identificacion']))
+        print(reporte_usuarios.columns)
+        cruce_cajero = reporte_usuarios[reporte_usuarios['Identificacion'].astype(str).str.strip() == str(num_id).strip()]
+        #cruce_cajero = reporte_usuarios[reporte_usuarios['Identificacion'] == num_id]
+        print(cruce_cajero)
+        if not cruce_cajero.empty:
+            cargo = cruce_cajero['Cargo'].iloc[0].strip()
+            print(cargo)
+        else:
+            cargo = None
+        return cargo
+        
 
-        # Obtener los datos del único usuario
-        for fila in hoja_reporte_usuarios.iter_rows(min_row=2, values_only=True):
-            identificacion = fila[3]  # Suponiendo que la identificación está en la cuarta columna (índice 3)
-            cargo = fila[2]  # Suponiendo que el cargo está en la tercera columna (índice 2)
-            print(f"Identificacion busacada: {identificacion}")        
-            if identificacion == num_identificacion:  # Comparar con el número de identificación que deseas buscar
-                print(f"Coicidencia encontra cajero: identicacion: '{num_identificacion}', Identificacion cajero: {identificacion} ")
-                cargo_cajero = cargo
-                return cargo_cajero
-        return None
+    def __buscar_usuarios_autorizado(self, reporte_usuarios, num_id):
+        usuario_lista = []
+        cruce_usuario =  reporte_usuarios[reporte_usuarios['Identificacion'].astype(str).str.strip() == str(num_id).strip()]
 
-    def __buscar_usuarios_autorizado(self, hoja_reporte_usuarios, num_identificacion):
-        # Crear una lista para almacenar la información del único usuario
+        if not cruce_usuario.empty:
+            cargo = cruce_usuario['Cargo'].iloc[0].strip()
+            oficina = cruce_usuario['Oficina'].iloc[0].strip()
+            estado = cruce_usuario['Estado'].iloc[0].strip()
+            usuario_lista = [cargo, oficina, estado]
+        else:
+            usuario_lista = None
+        return usuario_lista
+        
+        
+        
+        """  # Crear una lista para almacenar la información del único usuario
         usuario_lista = []
 
         # Obtener los datos del único usuario
@@ -229,7 +282,7 @@ class GuardarDatos(Pasos):
             print(f"Oficina: {usuario_lista[3]}")
         else:
             print("Usuario no encontrado")
-
+ """
     """ def guardar_en_excel(self, hoja):
         #Escribe los datos procesados en el archivo Excel en la hoja especificada.
         wb = self.excel.Workbooks.Open(self.path_ResultadoArchivo)
